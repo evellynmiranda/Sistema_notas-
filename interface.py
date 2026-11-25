@@ -19,6 +19,46 @@ import turmas
 from database import conectar
 
 
+FUNDO = "#f3f6fb"
+SUPERFICIE = "#ffffff"
+TEXTO = "#17233b"
+SECUNDARIO = "#536580"
+BORDA = "#dce4f0"
+AZUL = "#315be8"
+MENU = "#101d36"
+MENU_ATIVO = "#27447e"
+
+
+def configurar_estilos(janela):
+    estilo = ttk.Style(janela)
+    estilo.theme_use("clam")
+    estilo.configure(".", font=("DejaVu Sans", 10), foreground=TEXTO)
+    estilo.configure("TFrame", background=FUNDO)
+    estilo.configure("Card.TFrame", background=SUPERFICIE, bordercolor=BORDA,
+                     borderwidth=1, relief="solid")
+    estilo.configure("TLabel", background=FUNDO)
+    estilo.configure("Field.TLabel", background=SUPERFICIE, foreground=SECUNDARIO)
+    estilo.configure("Title.TLabel", font=("DejaVu Sans", 23, "bold"))
+    estilo.configure("Status.TLabel", foreground=SECUNDARIO)
+    estilo.configure("TEntry", padding=(10, 8), fieldbackground="#f8faff",
+                     bordercolor=BORDA, lightcolor=BORDA, darkcolor=BORDA)
+    estilo.map("TEntry", bordercolor=[("focus", AZUL)])
+    estilo.configure("TButton", padding=(14, 9), background=SUPERFICIE,
+                     bordercolor=BORDA, lightcolor=SUPERFICIE, darkcolor=SUPERFICIE)
+    estilo.map("TButton", background=[("active", "#eaf0ff")])
+    estilo.configure("Primary.TButton", background=AZUL, foreground="white",
+                     bordercolor=AZUL, lightcolor=AZUL, darkcolor=AZUL)
+    estilo.map("Primary.TButton", background=[("active", "#2447c0")])
+    estilo.configure("Danger.TButton", foreground="#ac2338")
+    estilo.configure("Treeview", rowheight=34, background=SUPERFICIE,
+                     fieldbackground=SUPERFICIE, bordercolor=BORDA)
+    estilo.configure("Treeview.Heading", background="#e9effa", foreground=TEXTO,
+                     padding=(8, 9), relief="flat", bordercolor=BORDA,
+                     font=("DejaVu Sans", 9, "bold"))
+    estilo.map("Treeview", background=[("selected", "#dbe6ff")],
+               foreground=[("selected", TEXTO)])
+
+
 def texto_obrigatorio(valor):
     if not valor:
         raise ValueError("Preencha todos os campos obrigatórios.")
@@ -40,13 +80,20 @@ def nota_opcional(valor):
 
 class Formulario(ttk.Frame):
     def __init__(self, parent, campos):
-        super().__init__(parent, padding=18)
+        super().__init__(parent)
+        self.columnconfigure(0, weight=1)
         self.entradas = []
-        self.columnconfigure(1, weight=1)
-        for linha, (rotulo, converter) in enumerate(campos):
-            ttk.Label(self, text=rotulo).grid(row=linha, column=0, sticky="w", pady=5)
-            entrada = ttk.Entry(self)
-            entrada.grid(row=linha, column=1, sticky="ew", padx=(16, 0))
+        cartao = ttk.Frame(self, style="Card.TFrame", padding=18)
+        cartao.grid(row=0, column=0, sticky="ew")
+        for coluna in range(3):
+            cartao.columnconfigure(coluna, weight=1, uniform="campos")
+        for indice, (rotulo, converter) in enumerate(campos):
+            linha, coluna = divmod(indice, 3)
+            campo = ttk.Frame(cartao, style="Card.TFrame", borderwidth=0)
+            campo.grid(row=linha, column=coluna, sticky="ew", padx=6, pady=6)
+            ttk.Label(campo, text=rotulo, style="Field.TLabel").pack(anchor="w", pady=(0, 5))
+            entrada = ttk.Entry(campo, width=16)
+            entrada.pack(fill="x")
             self.entradas.append((entrada, converter))
 
     def valores(self):
@@ -64,29 +111,44 @@ class Sistema:
     def __init__(self, janela):
         self.janela = janela
         janela.title("Sistema de notas escolares")
-        janela.geometry("920x680")
-        janela.minsize(700, 580)
+        janela.geometry("1000x690")
+        janela.minsize(860, 560)
+        configurar_estilos(janela)
 
-        estilo = ttk.Style(janela)
-        estilo.theme_use("clam")
-        estilo.configure("Title.TLabel", font=("TkDefaultFont", 18, "bold"))
-        estilo.configure("Treeview", rowheight=27)
-        estilo.configure("TNotebook.Tab", padding=(13, 8))
+        self.menu = tk.Frame(janela, bg=MENU, padx=14, pady=22, width=190)
+        self.menu.pack(side="left", fill="y")
+        self.menu.pack_propagate(False)
+        tk.Label(self.menu, text="Sistema de notas", bg=MENU, fg="white",
+                 font=("DejaVu Sans", 12, "bold")).pack(anchor="w", padx=10, pady=(4, 24))
 
-        painel = ttk.Frame(janela, padding=20)
-        painel.pack(fill="both", expand=True)
-        ttk.Label(painel, text="Sistema de notas escolares", style="Title.TLabel").pack(
-            anchor="w", pady=(0, 14)
+        painel = ttk.Frame(janela, padding=(26, 22))
+        painel.pack(side="left", fill="both", expand=True)
+        self.titulo = tk.StringVar()
+        ttk.Label(painel, textvariable=self.titulo, style="Title.TLabel").pack(
+            anchor="w", pady=(0, 16)
         )
-        self.abas = ttk.Notebook(painel)
-        self.abas.pack(fill="both", expand=True)
-        self.status = tk.StringVar(value="Selecione uma aba para trabalhar.")
-        ttk.Label(painel, textvariable=self.status, wraplength=650).pack(
-            anchor="w", pady=(10, 0)
-        )
+        self.paginas = ttk.Frame(painel)
+        self.paginas.pack(fill="both", expand=True)
+        self.paginas.columnconfigure(0, weight=1)
+        self.paginas.rowconfigure(0, weight=1)
+        self.status = tk.StringVar()
+        ttk.Label(painel, textvariable=self.status, style="Status.TLabel",
+                  wraplength=600).pack(anchor="w", pady=(12, 0))
+        self.formularios = {}
+        self.navegacao = {}
         self.atualizacoes = {}
         self.criar_abas()
-        self.abas.bind("<<NotebookTabChanged>>", self.aba_alterada)
+        janela.after_idle(self.abrir, "Alunos")
+
+    def abrir(self, titulo):
+        self.titulo.set(titulo)
+        self.formularios[titulo].tkraise()
+        self.status.set("")
+        for nome, botao in self.navegacao.items():
+            cor = MENU_ATIVO if nome == titulo else MENU
+            botao.configure(bg=cor)
+        if titulo in self.atualizacoes:
+            self.executar(self.atualizacoes[titulo])
 
     def criar_abas(self):
         texto = texto_obrigatorio
@@ -125,21 +187,32 @@ class Sistema:
         self.aba_notas()
 
     def formulario(self, titulo, campos):
-        formulario = Formulario(self.abas, campos)
-        self.abas.add(formulario, text=titulo)
+        formulario = Formulario(self.paginas, campos)
+        formulario.grid(row=0, column=0, sticky="nsew")
+        self.formularios[titulo] = formulario
+        botao = tk.Button(self.menu, text=titulo, anchor="w", padx=12, pady=9,
+                          bg=MENU, fg="white", activebackground=MENU_ATIVO,
+                          activeforeground="white", relief="flat", borderwidth=0,
+                          highlightthickness=1, highlightbackground=MENU,
+                          highlightcolor="#aec3ff", cursor="hand2",
+                          font=("DejaVu Sans", 10, "bold"),
+                          command=partial(self.abrir, titulo))
+        botao.pack(fill="x", pady=2)
+        self.navegacao[titulo] = botao
         return formulario
 
     def tabela(self, parent, colunas):
         quadro = ttk.Frame(parent)
-        quadro.grid(columnspan=2, sticky="nsew", pady=(12, 0))
+        quadro.grid(column=0, sticky="nsew", pady=(12, 0))
         parent.rowconfigure(quadro.grid_info()["row"], weight=1)
         tabela = ttk.Treeview(quadro, columns=tuple(colunas), show="headings",
                               selectmode="browse", height=8)
         for rotulo in colunas:
             tabela.heading(rotulo, text=rotulo)
-            tabela.column(rotulo, width=90, minwidth=55)
+            tabela.column(rotulo, width=90, minwidth=48)
         if colunas[0] == "ID":
             tabela.column("ID", width=55, stretch=False)
+        tabela.tag_configure("alternada", background="#f4f7fd")
         barra = ttk.Scrollbar(quadro, command=tabela.yview)
         tabela.configure(yscrollcommand=barra.set)
         barra.pack(side="right", fill="y")
@@ -148,16 +221,24 @@ class Sistema:
 
     def botoes(self, parent, acoes):
         quadro = ttk.Frame(parent)
-        quadro.grid(columnspan=2, sticky="w", pady=(12, 0))
-        for rotulo, acao in acoes:
-            ttk.Button(quadro, text=rotulo, command=acao).pack(side="left", padx=(0, 8))
+        quadro.grid(column=0, sticky="w", pady=(12, 0))
+        for indice, (rotulo, acao) in enumerate(acoes):
+            estilo = "TButton"
+            if indice == 0:
+                estilo = "Primary.TButton"
+            elif rotulo.startswith(("Excluir", "Remover")):
+                estilo = "Danger.TButton"
+            ttk.Button(quadro, text=rotulo, command=acao, style=estilo).pack(
+                side="left", padx=(0, 8)
+            )
 
     def consultar(self, tabela, sql):
         with conectar() as conexao:
             registros = conexao.execute(sql).fetchall()
         tabela.delete(*tabela.get_children())
-        for registro in registros:
-            tabela.insert("", "end", values=["" if valor is None else valor for valor in registro])
+        for indice, registro in enumerate(registros):
+            valores = ["" if valor is None else valor for valor in registro]
+            tabela.insert("", "end", values=valores, tags=("alternada",) if indice % 2 else ())
 
     def executar(self, acao, atualizar=None):
         saida = StringIO()
@@ -172,11 +253,6 @@ class Sistema:
             self.executar(atualizar)
             if saida.getvalue().strip():
                 self.status.set(saida.getvalue().strip())
-
-    def aba_alterada(self, _evento):
-        atualizar = self.atualizacoes.get(self.abas.select())
-        if atualizar:
-            self.executar(atualizar)
 
     def cadastro(self, titulo, campos, sql, cadastrar, atualizar, excluir, extras=()):
         formulario = self.formulario(titulo, campos)
@@ -209,7 +285,7 @@ class Sistema:
         ])
         tabela = self.tabela(formulario, colunas)
         recarregar = partial(self.consultar, tabela, sql)
-        self.atualizacoes[str(formulario)] = recarregar
+        self.atualizacoes[titulo] = recarregar
         tabela.bind("<<TreeviewSelect>>", preencher)
 
     def vinculos(self):
@@ -236,7 +312,7 @@ class Sistema:
         ])
         tabela = self.tabela(formulario, ["ID da turma", "Turma", "ID da disciplina", "Disciplina"])
         recarregar = partial(self.consultar, tabela, sql)
-        self.atualizacoes[str(formulario)] = recarregar
+        self.atualizacoes["Vínculos"] = recarregar
         tabela.bind("<<TreeviewSelect>>", preencher)
 
     def aba_notas(self):
@@ -264,8 +340,11 @@ class Sistema:
             resultado.configure(state="disabled")
 
         self.botoes(boletim, [("Consultar boletim", lambda: self.executar(consultar_boletim))])
-        resultado = tk.Text(boletim, height=10, wrap="word", state="disabled", padx=12, pady=10)
-        resultado.grid(columnspan=2, sticky="nsew", pady=(12, 0))
+        resultado = tk.Text(boletim, height=10, width=1, wrap="word", state="disabled",
+                            padx=18, pady=16, bg=SUPERFICIE, fg=TEXTO, relief="flat",
+                            highlightthickness=1, highlightbackground=BORDA,
+                            font=("DejaVu Sans", 11))
+        resultado.grid(column=0, sticky="nsew", pady=(12, 0))
         boletim.rowconfigure(resultado.grid_info()["row"], weight=1)
 
 
