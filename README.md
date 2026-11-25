@@ -1,14 +1,20 @@
 # Sistema de notas escolares
 
-Aplicação de terminal em Python para cadastrar alunos, turmas, disciplinas e
+Aplicação em Python com interface gráfica e menu de terminal para cadastrar alunos, turmas, disciplinas e
 matrículas, lançar notas por trimestre e consultar o boletim.
 
 ## Como executar
 
-1. Crie um ambiente virtual e instale a dependência.
+1. No Ubuntu, instale o suporte à interface gráfica e aos ambientes virtuais.
 
    ```bash
-   python -m venv .venv
+   sudo apt install python3-tk python3-venv
+   ```
+
+   Na pasta do projeto, crie um ambiente virtual e instale a dependência.
+
+   ```bash
+   python3 -m venv .venv
    source .venv/bin/activate
    python -m pip install -r requirements.txt
    ```
@@ -24,15 +30,19 @@ matrículas, lançar notas por trimestre e consultar o boletim.
    Se o servidor exigir senha, configure um arquivo `~/.pgpass` com permissão
    0600 ou forneça `PGPASSWORD` pelo ambiente.
 
-3. Crie as tabelas e abra o menu.
+3. Crie as tabelas e abra a janela do sistema.
 
    ```bash
    python tabelas.py
-   python main.py
+   python interface.py
    ```
 
-Antes de lançar notas, vincule a disciplina à turma (opção 16) e matricule o
-aluno (opção 19). Na opção 24, lançar novamente para a mesma matrícula,
-disciplina e trimestre substitui as notas daquele trimestre. Campos em branco
-ficam sem nota. A opção 25 mostra as avaliações registradas por disciplina e
-trimestre.
+Na janela, selecione uma linha da tabela para editar ou excluir um cadastro.
+Os identificadores usados nos formulários aparecem nas tabelas. Antes de
+lançar notas, vincule a disciplina à turma e matricule o aluno. Salvar novamente
+para a mesma matrícula, disciplina e trimestre substitui as notas daquele
+trimestre. Campos em branco ficam sem nota. A aba **Boletim** mostra as
+avaliações registradas por disciplina e trimestre.
+
+Para abrir o menu de terminal, execute `python main.py` com o ambiente virtual
+ativado.
